@@ -1,0 +1,14 @@
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/bin/Debug/net9.0/UserConsole
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/bin/Debug/net9.0/UserConsole.deps.json
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/bin/Debug/net9.0/UserConsole.runtimeconfig.json
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/bin/Debug/net9.0/UserConsole.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/bin/Debug/net9.0/UserConsole.pdb
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.GeneratedMSBuildEditorConfig.editorconfig
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.AssemblyInfoInputs.cache
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.AssemblyInfo.cs
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.csproj.CoreCompileInputs.cache
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/refint/UserConsole.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.pdb
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.genruntimeconfig.cache
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/ref/UserConsole.dll
