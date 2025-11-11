@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DataWarehouse")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d728e2145d4060a9221716f6197fd0e6fac23826")]
 [assembly: System.Reflection.AssemblyProductAttribute("DataWarehouse")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DataWarehouse")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
