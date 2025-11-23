@@ -41,3 +41,4 @@
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/BD/DataWarehouse/obj/Debug/net9.0/DataWarehouse.pdb
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/BD/DataWarehouse/obj/Debug/net9.0/DataWarehouse.genruntimeconfig.cache
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/BD/DataWarehouse/obj/Debug/net9.0/ref/DataWarehouse.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/BD/DataWarehouse/obj/Debug/net9.0/DataWarehouse.sourcelink.json

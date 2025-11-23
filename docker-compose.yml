@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  master:
+    build: ./BD/DataWarehouse
+    container_name: datawarehouse-master
+    volumes:
+      - ./BD/DataWarehouse/master.db:/data/master.db
+    environment:
+      - PORT=8081
+      - ROLE=master
+    ports:
+      - "8081:8081"
+
+  slave_8082:
+    build: ./BD/DataWarehouse
+    container_name: datawarehouse-slave-8082
+    volumes:
+      - ./BD/DataWarehouse/slave_8082.db:/data/slave.db
+    environment:
+      - PORT=8082
+      - ROLE=slave
+    ports:
+      - "8082:8082"
+
+  slave_8083:
+    build: ./BD/DataWarehouse
+    container_name: datawarehouse-slave-8083
+    volumes:
+      - ./BD/DataWarehouse/slave_8083.db:/data/slave.db
+    environment:
+      - PORT=8083
+      - ROLE=slave
+    ports:
+      - "8083:8083"
+
+  proxy:
+    build: ./Proxy/ProxyConsole
+    container_name: proxyconsole
+    depends_on:
+      - master
+      - slave_8082
+      - slave_8083
+    environment:
+      - MASTER_URL=http://master:8081
+      - SLAVE1_URL=http://slave_8082:8082
+      - SLAVE2_URL=http://slave_8083:8083
+      - PORT=8080
+    ports:
+      - "8080:8080"

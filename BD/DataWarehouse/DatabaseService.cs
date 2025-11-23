@@ -4,6 +4,8 @@ using Microsoft.Data.Sqlite;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
+using System.Net.Http;
+using System.Text.Json;
 
 namespace DataWarehouse
 {
@@ -18,9 +20,11 @@ namespace DataWarehouse
     {
         private readonly string connectionString;
         private readonly ServerType serverType;
-        private readonly string masterDbPath;
-        private readonly string slaveDbPath;
+        private readonly string? masterDbPath;
+        private readonly string? slaveDbPath;
+        private readonly string masterUrl;
         private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+        private static readonly HttpClient httpClient = new HttpClient();
 
         // Constructor pentru Master
         public DatabaseService(string dbPath, ServerType type = ServerType.Master)
@@ -31,23 +35,26 @@ namespace DataWarehouse
             {
                 masterDbPath = dbPath;
                 connectionString = $"Data Source={masterDbPath};";
+                masterUrl = "";
             }
             else
             {
                 slaveDbPath = dbPath;
                 connectionString = $"Data Source={slaveDbPath};";
+                masterUrl = Environment.GetEnvironmentVariable("MASTER_URL") ?? "http://master:8081";
             }
 
             InitializeDatabase();
         }
 
-             // Constructor pentru Slave cu referință la Master
+             // Constructor pentru Slave cu referință la Master (legacy, kept for compatibility)
         public DatabaseService(string slaveDbPath, string masterDbPath)
         {
             serverType = ServerType.Slave;
             this.slaveDbPath = slaveDbPath;
             this.masterDbPath = masterDbPath;
             connectionString = $"Data Source={slaveDbPath};";
+            masterUrl = Environment.GetEnvironmentVariable("MASTER_URL") ?? "http://master:8081";
 
             InitializeDatabase();  // tabelul e creat aici
 
@@ -58,7 +65,7 @@ namespace DataWarehouse
 
         private void InitializeDatabase()
         {
-            string dbPath = serverType == ServerType.Master ? masterDbPath : slaveDbPath;
+            string dbPath = (serverType == ServerType.Master ? masterDbPath : slaveDbPath) ?? throw new InvalidOperationException("Database path not set");
 
             if (!File.Exists(dbPath))
             {
@@ -90,12 +97,9 @@ namespace DataWarehouse
 
 
         // ===== READ OPERATIONS (Slave) =====
-        public async Task<Employee> GetByIdAsync(int id)
+        public async Task<Employee?> GetByIdAsync(int id)
         {
-            if (serverType == ServerType.Master)
-            {
-                throw new InvalidOperationException("Master server should not handle read operations. Use Slave servers.");
-            }
+            // Note: The master can read its own data for replication purposes, but external GET requests are restricted via HTTP routing
 
             await semaphore.WaitAsync();
             try
@@ -128,10 +132,7 @@ namespace DataWarehouse
 
         public async Task<List<Employee>> GetAllAsync(int offset, int limit)
         {
-            if (serverType == ServerType.Master)
-            {
-                throw new InvalidOperationException("Master server should not handle read operations. Use Slave servers.");
-            }
+            // Note: This method is used by both slaves and replication from master, so we don't restrict it to slaves only
 
             await semaphore.WaitAsync();
             try
@@ -285,11 +286,23 @@ namespace DataWarehouse
                 throw new InvalidOperationException("Master cannot replicate from itself.");
             }
 
+            // Wait for master to be ready before starting replication
+            await WaitForMasterReady();
+
+            int consecutiveFailures = 0;
+            const int maxConsecutiveFailures = 3;
+            const int baseDelayMs = 5000;
+            const int maxDelayMs = 30000;
+
             while (true)
             {
                 try
                 {
-                    await Task.Delay(5000); // Replicare la fiecare 5 secunde
+                    // Exponential backoff: delay increases after consecutive failures
+                    int delayMs = baseDelayMs * (1 + (consecutiveFailures / maxConsecutiveFailures));
+                    delayMs = Math.Min(delayMs, maxDelayMs);
+                    
+                    await Task.Delay(delayMs);
 
                     // Citește înregistrări din Master
                     var masterEmployees = await GetAllEmployeesFromMaster();
@@ -297,39 +310,81 @@ namespace DataWarehouse
                     // Sincronizează cu Slave
                     await SyncWithSlave(masterEmployees);
 
-                    Console.WriteLine($"[REPLICATION] Slave {Path.GetFileName(slaveDbPath)} synced with Master");
+                    Console.WriteLine($"[REPLICATION] Slave {Path.GetFileName(slaveDbPath ?? "unknown")} synced with Master");
+                    consecutiveFailures = 0; // Reset on success
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[REPLICATION ERROR] {ex.Message}");
+                    consecutiveFailures++;
+                    // Only log detailed errors on first failure or every 10 attempts after that
+                    if (consecutiveFailures == 1 || consecutiveFailures % 10 == 0)
+                    {
+                        Console.WriteLine($"[REPLICATION ERROR] {ex.Message}");
+                    }
                 }
             }
         }
 
-        private async Task<List<Employee>> GetAllEmployeesFromMaster()
+        private async Task WaitForMasterReady()
         {
-            var masterConnection = $"Data Source={masterDbPath};";
-            using var connection = new SqliteConnection(masterConnection);
-            await connection.OpenAsync();
+            int maxAttempts = 30; // Wait up to 30 seconds
+            int attempt = 0;
+            int delayMs = 1000;
 
-            var query = "SELECT * FROM Employees";
-            using var command = new SqliteCommand(query, connection);
+            Console.WriteLine("[REPLICATION] Waiting for Master to be ready...");
 
-            var employees = new List<Employee>();
-            using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
+            while (attempt < maxAttempts)
             {
-                employees.Add(new Employee
+                try
                 {
-                    Id = reader.GetInt32(0),
-                    Name = reader.GetString(1),
-                    Position = reader.GetString(2),
-                    Salary = reader.GetDecimal(3)
-                });
+                    using var client = new HttpClient();
+                    client.Timeout = TimeSpan.FromSeconds(2);
+                    var response = await client.GetAsync($"{masterUrl}/employees");
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("[REPLICATION] Master is ready, starting replication...");
+                        return;
+                    }
+                }
+                catch
+                {
+                    // Master not ready yet
+                }
+
+                attempt++;
+                if (attempt < maxAttempts)
+                {
+                    await Task.Delay(delayMs);
+                }
             }
 
-            return employees;
+            Console.WriteLine("[REPLICATION WARNING] Master did not respond within timeout, proceeding anyway...");
+        }
+
+        private async Task<List<Employee>> GetAllEmployeesFromMaster()
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.Timeout = TimeSpan.FromSeconds(5);
+                var response = await client.GetAsync($"{masterUrl}/employees");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    var employees = JsonSerializer.Deserialize<List<Employee>>(json) ?? new List<Employee>();
+                    return employees;
+                }
+                else
+                {
+                    throw new Exception($"HTTP {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to connect to master: {ex.Message}", ex);
+            }
         }
 
         private async Task SyncWithSlave(List<Employee> masterEmployees)

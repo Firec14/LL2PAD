@@ -9,27 +9,33 @@ namespace Proxy
 {
     class Program
     {
-        private static CacheService cache;
-        private static LoadBalancer loadBalancer;
+        private static CacheService? cache;
+        private static LoadBalancer? loadBalancer;
         private const int CacheCleanupInterval = 60; // secunde
 
         static async Task Main(string[] args)
         {
             cache = new CacheService("proxy_cache.db");
+            
+            // Read warehouse URLs from environment variables or use defaults
+            string masterUrl = Environment.GetEnvironmentVariable("MASTER_URL") ?? "http://localhost:8081";
+            string slave1Url = Environment.GetEnvironmentVariable("SLAVE1_URL") ?? "http://localhost:8082";
+            string slave2Url = Environment.GetEnvironmentVariable("SLAVE2_URL") ?? "http://localhost:8083";
+            
             loadBalancer = new LoadBalancer(
-                masters: new[] { "http://localhost:8081" }, // master
-                slaves: new[] { "http://localhost:8082" }   // slave
+                masters: new[] { masterUrl },
+                slaves: new[] { slave1Url, slave2Url }
             );
 
             // Pornim cleanup periodic
             _ = Task.Run(() => RunCacheCleanupAsync());
 
             var listener = new HttpListener();
-            listener.Prefixes.Add("http://localhost:8080/");
+            listener.Prefixes.Add("http://+:8080/");
             listener.Start();
 
             Console.WriteLine("PROXY Server started on http://localhost:8080/");
-            Console.WriteLine("Forwarding to warehouses: 8081 \n");
+            Console.WriteLine($"Forwarding to warehouses: {masterUrl} (Master), {slave1Url}, {slave2Url} (Slaves)\n");
 
             while (true)
             {
@@ -45,7 +51,7 @@ namespace Proxy
             {
                 try
                 {
-                    await cache.CleanupExpiredAsync();
+                    await cache?.CleanupExpiredAsync()!;
                 }
                 catch (Exception ex)
                 {
@@ -56,22 +62,22 @@ namespace Proxy
         }
 
         static async Task HandleRequest(HttpListenerContext context)
-{
-    var request = context.Request;
-    var response = context.Response;
+        {
+            var request = context.Request;
+            var response = context.Response;
 
-    try
-    {
-        var cacheKey = $"{request.HttpMethod}:{request.Url.PathAndQuery}";
-        string warehouse;
-        if (request.HttpMethod == "GET")
-        warehouse = loadBalancer.GetNextSlave();
-        else
-        warehouse = loadBalancer.GetMaster();
+            try
+            {
+                var cacheKey = $"{request.HttpMethod}:{request.Url?.PathAndQuery ?? "/"}";
+                string warehouse;
+                if (request.HttpMethod == "GET")
+                    warehouse = loadBalancer?.GetNextSlave() ?? throw new InvalidOperationException("LoadBalancer not initialized");
+                else
+                    warehouse = loadBalancer?.GetMaster() ?? throw new InvalidOperationException("LoadBalancer not initialized");
 
-                var warehouseUrl = warehouse + request.Url.PathAndQuery;
-        
-        Console.WriteLine($"[{request.HttpMethod}] → {warehouseUrl}");
+                var warehouseUrl = warehouse + (request.Url?.PathAndQuery ?? "/");
+                
+                Console.WriteLine($"[{request.HttpMethod}] → {warehouseUrl}");
 
 
         using var client = new HttpClient();
@@ -79,7 +85,7 @@ namespace Proxy
 
         if (request.HttpMethod == "GET")
         {
-            var cached = await cache.GetAsync(cacheKey);
+            var cached = await cache?.GetAsync(cacheKey)!;
             if (cached != null)
             {
                 Console.WriteLine($"[CACHE HIT] {cacheKey}");
@@ -97,11 +103,12 @@ namespace Proxy
 
             try
             {
-                var employee = System.Text.Json.JsonSerializer.Deserialize<Employee>(body);
+                var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var employee = System.Text.Json.JsonSerializer.Deserialize<Employee>(body, options);
                 if (employee != null)
                 {
                     var key = $"GET:/employee/{employee.Id}";
-                    await cache.DeleteAsync(key);
+                    await cache?.DeleteAsync(key)!;
                     Console.WriteLine($"[CACHE INVALIDATED] {key}");
                 }
             }
@@ -120,9 +127,13 @@ namespace Proxy
             warehouseResponse = await client.DeleteAsync(warehouseUrl);
 
             // Șterge cache-ul relevant
-            var key = $"GET:/employee/{request.Url.Segments[2].TrimEnd('/')}";
-            await cache.DeleteAsync(key);
-            Console.WriteLine($"[CACHE INVALIDATED] {key}");
+            var segments = request.Url?.Segments;
+            if (segments != null && segments.Length > 2)
+            {
+                var key = $"GET:/employee/{segments[2].TrimEnd('/')}";
+                await cache?.DeleteAsync(key)!;
+                Console.WriteLine($"[CACHE INVALIDATED] {key}");
+            }
         }
         else
         {
@@ -135,7 +146,7 @@ namespace Proxy
 
         if (request.HttpMethod == "GET" && warehouseResponse.IsSuccessStatusCode)
         {
-            await cache.SetAsync(cacheKey, result);
+            await cache?.SetAsync(cacheKey, result)!;
         }
 
         response.StatusCode = (int)warehouseResponse.StatusCode;

@@ -31,7 +31,7 @@ namespace Proxy
             command.ExecuteNonQuery();
         }
 
-        public async Task<string> GetAsync(string key)
+        public async Task<string?> GetAsync(string key)
         {
             await CleanupExpiredAsync(); // curăță intrările expirate înainte de citire
 

@@ -67,3 +67,4 @@
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/Proxy/ProxyConsole/obj/Debug/net9.0/ProxyConsole.pdb
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/Proxy/ProxyConsole/obj/Debug/net9.0/ProxyConsole.genruntimeconfig.cache
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/Proxy/ProxyConsole/obj/Debug/net9.0/ref/ProxyConsole.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/Proxy/ProxyConsole/obj/Debug/net9.0/ProxyConsole.sourcelink.json

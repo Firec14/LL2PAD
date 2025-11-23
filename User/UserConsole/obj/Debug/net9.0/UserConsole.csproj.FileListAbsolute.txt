@@ -12,3 +12,4 @@
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.pdb
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.genruntimeconfig.cache
 /Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/ref/UserConsole.dll
+/Users/cristianperevoznik/Desktop/UTM_Anul_4/PAD/LL2/User/UserConsole/obj/Debug/net9.0/UserConsole.sourcelink.json

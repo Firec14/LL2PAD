@@ -9,7 +9,7 @@ namespace DataWarehouse
 {
     class Program
     {
-        private static DatabaseService db;
+        private static DatabaseService? db;
         private static int port;
         private static ServerType serverType;
 
@@ -51,7 +51,7 @@ namespace DataWarehouse
             }
 
             var listener = new HttpListener();
-            listener.Prefixes.Add($"http://localhost:{port}/");
+            listener.Prefixes.Add($"http://+:{port}/");
             listener.Start();
 
             Console.WriteLine($"Listening on http://localhost:{port}/\n");
@@ -70,19 +70,26 @@ namespace DataWarehouse
 
             try
             {
-                var path = request.Url.AbsolutePath;
+                var path = request.Url?.AbsolutePath ?? "/";
                 var method = request.HttpMethod;
 
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] [{method}] {path}");
 
-                // Validare: Master nu acceptă GET, Slave nu acceptă scrieri
+                // Validare: Master nu acceptă GET (except for replication endpoint), Slave nu acceptă scrieri
                 if (serverType == ServerType.Master && method == "GET")
                 {
-                    response.StatusCode = 403;
-                    await SendResponse(response, 
-                        "{\"error\":\"Master server does not handle GET requests. Use Slave servers.\"}", 
-                        "application/json");
-                    return;
+                    if (path == "/employees")
+                    {
+                        // Allow GET /employees for replication
+                    }
+                    else
+                    {
+                        response.StatusCode = 403;
+                        await SendResponse(response, 
+                            "{\"error\":\"Master server does not handle GET requests. Use Slave servers.\"}", 
+                            "application/json");
+                        return;
+                    }
                 }
 
                 if (serverType == ServerType.Slave && (method == "PUT" || method == "POST" || method == "DELETE"))
@@ -141,8 +148,8 @@ namespace DataWarehouse
 
         static async Task HandleGetEmployeeById(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var id = int.Parse(request.Url.Segments[2].TrimEnd('/'));
-            var employee = await db.GetByIdAsync(id);
+            var id = int.Parse(request.Url?.Segments[2].TrimEnd('/') ?? throw new InvalidOperationException("Invalid URL"));
+            var employee = await db?.GetByIdAsync(id)!;
 
             if (employee == null)
             {
@@ -157,11 +164,11 @@ namespace DataWarehouse
 
         static async Task HandleGetAllEmployees(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var query = request.Url.Query;
+            var query = request.Url?.Query ?? string.Empty;
             var offset = GetQueryParam(query, "offset", 0);
             var limit = GetQueryParam(query, "limit", 10);
 
-            var employees = await db.GetAllAsync(offset, limit);
+            var employees = await db?.GetAllAsync(offset, limit)!;
             var json = JsonSerializer.Serialize(employees);
             await SendResponse(response, json, "application/json");
         }
@@ -170,9 +177,11 @@ namespace DataWarehouse
         {
             using var reader = new StreamReader(request.InputStream);
             var body = await reader.ReadToEndAsync();
-            var employee = JsonSerializer.Deserialize<Employee>(body);
+            
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var employee = JsonSerializer.Deserialize<Employee>(body, options);
 
-            var id = await db.AddAsync(employee);
+            var id = await db?.AddAsync(employee!)!;
             var json = JsonSerializer.Serialize(new { id, message = "Employee added to Master. Replicating to Slaves..." });
             await SendResponse(response, json, "application/json");
         }
@@ -181,17 +190,19 @@ namespace DataWarehouse
         {
             using var reader = new StreamReader(request.InputStream);
             var body = await reader.ReadToEndAsync();
-            var employee = JsonSerializer.Deserialize<Employee>(body);
+            
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var employee = JsonSerializer.Deserialize<Employee>(body, options);
 
-            await db.UpdateAsync(employee);
+            await db?.UpdateAsync(employee!)!;
             var json = JsonSerializer.Serialize(new { message = "Employee updated on Master. Replicating to Slaves..." });
             await SendResponse(response, json, "application/json");
         }
 
         static async Task HandleDeleteEmployee(HttpListenerRequest request, HttpListenerResponse response)
         {
-            var id = int.Parse(request.Url.Segments[2].TrimEnd('/'));
-            await db.DeleteAsync(id);
+            var id = int.Parse(request.Url?.Segments[2].TrimEnd('/') ?? throw new InvalidOperationException("Invalid URL"));
+            await db?.DeleteAsync(id)!;
             var json = JsonSerializer.Serialize(new { message = "Employee deleted from Master. Replicating to Slaves..." });
             await SendResponse(response, json, "application/json");
         }
